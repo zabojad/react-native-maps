@@ -266,7 +266,7 @@ class MapMarker extends React.Component {
     this.animateMarkerToCoordinate = this.animateMarkerToCoordinate.bind(this);
   }
 
-  setNativeProps(props) {
+  setNativeProps(props: any) {
     this.marker.setNativeProps(props);
   }
 

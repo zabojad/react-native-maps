@@ -55,6 +55,7 @@ import com.google.android.gms.maps.model.TileOverlay;
 import com.google.android.gms.maps.model.VisibleRegion;
 import com.google.android.gms.maps.model.IndoorBuilding;
 import com.google.android.gms.maps.model.IndoorLevel;
+import com.google.maps.android.data.Feature;
 import com.google.maps.android.data.kml.KmlContainer;
 import com.google.maps.android.data.kml.KmlLayer;
 import com.google.maps.android.data.kml.KmlPlacemark;
@@ -279,7 +280,16 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
       public void onPolygonClick(Polygon polygon) {
         WritableMap event = makeClickEventData(tapLocation);
         event.putString("action", "polygon-press");
-        manager.pushEvent(context, polygonMap.get(polygon), "onPress", event);
+        System.out.println("onPolygonClick");
+        System.out.println(polygon.getId());
+        System.out.println(polygonMap.get(polygon)==null);
+        if (polygonMap.get(polygon)!=null) {
+          manager.pushEvent(context, polygonMap.get(polygon), "onPress", event);
+        }
+        else {
+          // polygon from KML case
+          System.out.println("ignoring polygon click");
+        }
       }
     });
 
@@ -663,6 +673,7 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
       polygonView.addToMap(map);
       features.add(index, polygonView);
       Polygon polygon = (Polygon) polygonView.getFeature();
+      System.out.println("1. Add to polygonMap "+polygon.getId());
       polygonMap.put(polygon, polygonView);
     } else if (child instanceof AirMapCircle) {
       AirMapCircle circleView = (AirMapCircle) child;
@@ -1189,69 +1200,31 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
         return;
       }
 
-      //Retrieve a nested container within the first container
-      KmlContainer container = kmlLayer.getContainers().iterator().next();
-      if (container == null || container.getContainers() == null) {
-        manager.pushEvent(context, this, "onKmlReady", pointers);
-        return;
-      }
+      // //Retrieve a nested container within the first container
+      // KmlContainer container = kmlLayer.getContainers().iterator().next();
+      // if (container == null || container.getContainers() == null) {
+      //   manager.pushEvent(context, this, "onKmlReady", pointers);
+      //   return;
+      // }
 
+      // Set a listener for geometry clicked events.
+      final AirMapView view = this;
+      
+      kmlLayer.setOnFeatureClickListener(new KmlLayer.OnFeatureClickListener() {
+        
+        @Override
+        public void onFeatureClick(Feature feature) {
+            // System.out.println("KML Feature clicked: " + feature.getId());
+            // System.out.println("KML Feature clicked: " + feature.getPropertyKeys().toString());
+            System.out.println("KML Feature clicked: " + feature.getProperty("name"));
 
-      if (container.getContainers().iterator().hasNext()) {
-        container = container.getContainers().iterator().next();
-      }
-
-      Integer index = 0;
-      for (KmlPlacemark placemark : container.getPlacemarks()) {
-        MarkerOptions options = new MarkerOptions();
-
-        if (placemark.getInlineStyle() != null) {
-          options = placemark.getMarkerOptions();
-        } else {
-          options.icon(BitmapDescriptorFactory.defaultMarker());
+            WritableMap event = makeClickEventData(tapLocation);
+            event.putString("action", "marker-press");
+            event.putString("id", feature.getId());
+            event.putString("name", feature.getProperty("name"));
+            manager.pushEvent(context, view, "onMarkerPress", event);
         }
-
-        LatLng latLng = ((LatLng) placemark.getGeometry().getGeometryObject());
-        String title = "";
-        String snippet = "";
-
-        if (placemark.hasProperty("name")) {
-          title = placemark.getProperty("name");
-        }
-
-        if (placemark.hasProperty("description")) {
-          snippet = placemark.getProperty("description");
-        }
-
-        options.position(latLng);
-        options.title(title);
-        options.snippet(snippet);
-
-        AirMapMarker marker = new AirMapMarker(context, options, this.manager.getMarkerManager());
-
-        if (placemark.getInlineStyle() != null
-            && placemark.getInlineStyle().getIconUrl() != null) {
-          marker.setImage(placemark.getInlineStyle().getIconUrl());
-        } else if (container.getStyle(placemark.getStyleId()) != null) {
-          KmlStyle style = container.getStyle(placemark.getStyleId());
-          marker.setImage(style.getIconUrl());
-        }
-
-        String identifier = title + " - " + index;
-
-        marker.setIdentifier(identifier);
-
-        addFeature(marker, index++);
-
-        WritableMap loadedMarker = makeClickEventData(latLng);
-        loadedMarker.putString("id", identifier);
-        loadedMarker.putString("title", title);
-        loadedMarker.putString("description", snippet);
-
-        markers.pushMap(loadedMarker);
-      }
-
-      pointers.putArray("markers", markers);
+      });
 
       manager.pushEvent(context, this, "onKmlReady", pointers);
 

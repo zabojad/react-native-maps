@@ -18,6 +18,7 @@
 #import "AIRGoogleMapWMSTile.h"
 #import "AIRGoogleMapOverlay.h"
 #import <GoogleMaps/GoogleMaps.h>
+#import <GoogleMaps/GMSGeometryUtils.h>
 #import <MapKit/MapKit.h>
 #import <React/UIView+React.h>
 #import <React/RCTBridge.h>
@@ -27,6 +28,7 @@
 #ifdef HAVE_GOOGLE_MAPS_UTILS
 #import <Google-Maps-iOS-Utils/GMUKMLParser.h>
 #import <Google-Maps-iOS-Utils/GMUPlacemark.h>
+#import <Google-Maps-iOS-Utils/GMUPolygon.h>
 #import <Google-Maps-iOS-Utils/GMUPoint.h>
 #import <Google-Maps-iOS-Utils/GMUGeometryRenderer.h>
 #define REQUIRES_GOOGLE_MAPS_UTILS(feature) do {} while (0)
@@ -66,6 +68,8 @@ id regionAsJSON(MKCoordinateRegion region) {
   BOOL _didCallOnMapReady;
   BOOL _didMoveToWindow;
   BOOL _zoomTapEnabled;
+
+  GMUKMLParser *parser;
 }
 
 - (instancetype)init
@@ -352,6 +356,27 @@ id regionAsJSON(MKCoordinateRegion region) {
 }
 
 - (void)didTapAtCoordinate:(CLLocationCoordinate2D)coordinate {
+  if (parser != nil) {
+      for (GMUPlacemark *place in parser.placemarks) {
+          if ([place.geometry isKindOfClass:[GMUPolygon class]] &&
+              GMSGeometryContainsLocation(coordinate, ((GMUPolygon*) place.geometry).paths.firstObject, YES)) {
+              // kml case
+              id event = @{
+                @"action": @"polygon-press",
+                @"name": place.title ?: @"unknown",
+                @"id": place.styleUrl ?: @"unknown",
+                @"description": place.description ?: @"unknown",
+                @"coordinate": @{
+                    @"latitude": @(coordinate.latitude),
+                    @"longitude": @(coordinate.longitude),
+                }
+              };
+              if (!self.onMarkerPress) return;
+              self.onMarkerPress(event);
+              return;
+          }
+      }
+  }
   if (!self.onPress) return;
   self.onPress([self eventFromCoordinate:coordinate]);
 }
@@ -860,7 +885,9 @@ id regionAsJSON(MKCoordinateRegion region) {
   GMUKMLParser *parser = [[GMUKMLParser alloc] initWithData:urlData];
   [parser parse];
 */
-  GMUKMLParser *parser = [[GMUKMLParser alloc] initWithURL:url];
+  // GMUKMLParser *parser = [[GMUKMLParser alloc] initWithURL:url];
+  // [parser parse];
+  parser = [[GMUKMLParser alloc] initWithURL:url];
   [parser parse];
 
   GMUGeometryRenderer *renderer =

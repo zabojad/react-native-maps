@@ -103,7 +103,8 @@ RCT_EXPORT_VIEW_PROPERTY(onIndoorBuildingFocused, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(mapType, GMSMapViewType)
 RCT_EXPORT_VIEW_PROPERTY(minZoomLevel, CGFloat)
 RCT_EXPORT_VIEW_PROPERTY(maxZoomLevel, CGFloat)
-RCT_EXPORT_VIEW_PROPERTY(kmlSrc, NSString)
+RCT_EXPORT_VIEW_PROPERTY(kmlSrc, NSArray)
+RCT_EXPORT_VIEW_PROPERTY(kmlLayerIndex, NSNumber)
 
 RCT_EXPORT_METHOD(getCamera:(nonnull NSNumber *)reactTag
                   resolver: (RCTPromiseResolveBlock)resolve
@@ -602,12 +603,12 @@ RCT_EXPORT_METHOD(setIndoorActiveLevelIndex:(nonnull NSNumber *)reactTag
   return [googleMapView didTapMarker:marker];
 }
 
-- (void)mapView:(GMSMapView *)mapView didTapOverlay:(GMSPolygon *)polygon {
+- (void)mapView:(GMSMapView *)mapView didTapOverlay:(GMSPolygon *)polygon { NSLog(@"didTapOverlay");
   AIRGoogleMap *googleMapView = (AIRGoogleMap *)mapView;
   [googleMapView didTapPolygon:polygon];
 }
 
-- (void)mapView:(GMSMapView *)mapView didTapAtCoordinate:(CLLocationCoordinate2D)coordinate {
+- (void)mapView:(GMSMapView *)mapView didTapAtCoordinate:(CLLocationCoordinate2D)coordinate { NSLog(@"didTapAtCoordinate");
   AIRGoogleMap *googleMapView = (AIRGoogleMap *)mapView;
   [googleMapView didTapAtCoordinate:coordinate];
 }

@@ -61,7 +61,8 @@
 @property (nonatomic, assign) BOOL showsMyLocationButton;
 @property (nonatomic, assign) BOOL showsIndoors;
 @property (nonatomic, assign) BOOL showsIndoorLevelPicker;
-@property (nonatomic, assign) NSString *kmlSrc;
+@property (nonatomic, assign) NSArray<NSString *> *kmlSrc;
+@property (nonatomic, assign) NSNumber *kmlLayerIndex;
 
 - (void)didPrepareMap;
 - (void)mapViewDidFinishTileRendering;

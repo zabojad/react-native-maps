@@ -44,11 +44,11 @@
 
 id regionAsJSON(MKCoordinateRegion region) {
   return @{
-           @"latitude": [NSNumber numberWithDouble:region.center.latitude],
-           @"longitude": [NSNumber numberWithDouble:region.center.longitude],
-           @"latitudeDelta": [NSNumber numberWithDouble:region.span.latitudeDelta],
-           @"longitudeDelta": [NSNumber numberWithDouble:region.span.longitudeDelta],
-           };
+       @"latitude": [NSNumber numberWithDouble:region.center.latitude],
+       @"longitude": [NSNumber numberWithDouble:region.center.longitude],
+       @"latitudeDelta": [NSNumber numberWithDouble:region.span.latitudeDelta],
+       @"longitudeDelta": [NSNumber numberWithDouble:region.span.longitudeDelta],
+   };
 }
 
 @interface AIRGoogleMap () <GMSIndoorDisplayDelegate>
@@ -61,15 +61,16 @@ id regionAsJSON(MKCoordinateRegion region) {
 
 @implementation AIRGoogleMap
 {
-  NSMutableArray<UIView *> *_reactSubviews;
-  MKCoordinateRegion _initialRegion;
-  MKCoordinateRegion _region;
-  BOOL _initialCameraSetOnLoad;
-  BOOL _didCallOnMapReady;
-  BOOL _didMoveToWindow;
-  BOOL _zoomTapEnabled;
+    NSMutableArray<UIView *> *_reactSubviews;
+    MKCoordinateRegion _initialRegion;
+    MKCoordinateRegion _region;
+    BOOL _initialCameraSetOnLoad;
+    BOOL _didCallOnMapReady;
+    BOOL _didMoveToWindow;
+    BOOL _zoomTapEnabled;
 
-  GMUKMLParser *parser;
+    NSMutableArray<GMUKMLParser *> *parsers;
+    NSMutableArray<GMUGeometryRenderer *> *renderers;
 }
 
 - (instancetype)init
@@ -356,7 +357,8 @@ id regionAsJSON(MKCoordinateRegion region) {
 }
 
 - (void)didTapAtCoordinate:(CLLocationCoordinate2D)coordinate {
-  if (parser != nil) {
+  if (parsers != nil && _kmlLayerIndex!=nil) {
+      GMUKMLParser * parser = [parsers objectAtIndex:[_kmlLayerIndex integerValue]];
       for (GMUPlacemark *place in parser.placemarks) {
           if ([place.geometry isKindOfClass:[GMUPolygon class]] &&
               GMSGeometryContainsLocation(coordinate, ((GMUPolygon*) place.geometry).paths.firstObject, YES)) {
@@ -365,7 +367,6 @@ id regionAsJSON(MKCoordinateRegion region) {
                 @"action": @"polygon-press",
                 @"name": place.title ?: @"unknown",
                 @"id": place.styleUrl ?: @"unknown",
-                @"description": place.description ?: @"unknown",
                 @"coordinate": @{
                     @"latitude": @(coordinate.latitude),
                     @"longitude": @(coordinate.longitude),
@@ -863,16 +864,33 @@ id regionAsJSON(MKCoordinateRegion region) {
 #endif
 }
 
-- (NSString *)KmlSrc {
+- (NSNumber *)KmlLayerIndex {
+  return _kmlLayerIndex;
+}
+
+- (void)setKmlLayerIndex:(NSNumber *)index {
+#ifdef HAVE_GOOGLE_MAPS_UTILS
+    if (_kmlLayerIndex==nil) {
+        _kmlLayerIndex = 0;
+    }
+    if (renderers!=nil && [renderers count] > [index integerValue]) {
+        [[renderers objectAtIndex:[_kmlLayerIndex integerValue]] clear];
+        [[renderers objectAtIndex:[index integerValue]] render];
+    }
+    _kmlLayerIndex = index;
+#else
+    REQUIRES_GOOGLE_MAPS_UTILS();
+#endif
+}
+
+- (NSArray<NSString *> *)KmlSrc {
   return _kmlSrc;
 }
 
-- (void)setKmlSrc:(NSString *)kmlUrl {
+- (void)setKmlSrc:(NSArray<NSString *> *)kmlUrls {
 #ifdef HAVE_GOOGLE_MAPS_UTILS
 
-  _kmlSrc = kmlUrl;
-
-  NSURL *url = [NSURL URLWithString:kmlUrl];
+  _kmlSrc = kmlUrls;
 /*
   NSData *urlData = nil;
 
@@ -884,19 +902,44 @@ id regionAsJSON(MKCoordinateRegion region) {
 
   GMUKMLParser *parser = [[GMUKMLParser alloc] initWithData:urlData];
   [parser parse];
+ 
+ // GMUKMLParser *parser = [[GMUKMLParser alloc] initWithURL:url];
+ // [parser parse];
 */
-  // GMUKMLParser *parser = [[GMUKMLParser alloc] initWithURL:url];
-  // [parser parse];
-  parser = [[GMUKMLParser alloc] initWithURL:url];
-  [parser parse];
+    parsers = [NSMutableArray new];
+    renderers = [NSMutableArray new];
+    
+    for (NSString* kmlUrl in kmlUrls) {
+        NSURL *url = [NSURL URLWithString:kmlUrl];
+        
+        GMUKMLParser *parser = [[GMUKMLParser alloc] initWithURL:url];
+        [parser parse];
+        
+        [parsers addObject:parser];
+        
+        GMUGeometryRenderer *renderer =
+          [[GMUGeometryRenderer alloc] initWithMap:self
+                                        geometries:parser.placemarks
+                                            styles:parser.styles];
+        
+        [renderers addObject:renderer];
+        
+        //[renderer render];
+        //[renderer clear];
+    }
+    [[renderers objectAtIndex:0] render];
+    
+  //parser = [[GMUKMLParser alloc] initWithURL:url];
+  //[parser parse];
 
-  GMUGeometryRenderer *renderer =
-    [[GMUGeometryRenderer alloc] initWithMap:self
-                                  geometries:parser.placemarks
-                                      styles:parser.styles];
-  [renderer render];
+  //GMUGeometryRenderer *renderer =
+  //  [[GMUGeometryRenderer alloc] initWithMap:self
+  //                                geometries:parser.placemarks
+  //                                    styles:parser.styles];
+  //[renderer render];
 
   // NSUInteger index = 0;
+    /*
   NSMutableArray *places = [[NSMutableArray alloc]init];
 
   for (GMUPlacemark *place in parser.placemarks) {
@@ -916,9 +959,10 @@ id regionAsJSON(MKCoordinateRegion region) {
 
     // index++;
   }
-
-  id event = @{@"placemarks": places};
-  if (self.onKmlReady) self.onKmlReady(event);
+     id event = @{@"placemarks": places};
+*/
+    id event = @{ };
+    if (self.onKmlReady) self.onKmlReady(event);
 #else
     REQUIRES_GOOGLE_MAPS_UTILS();
 #endif

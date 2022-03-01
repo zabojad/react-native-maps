@@ -1189,6 +1189,11 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
         return;
       }
 
+      if (kmlLayer != null && kmlLayer.isLayerOnMap()) {
+        System.out.println("kmlLayer not null, removing...");
+        kmlLayer.removeLayerFromMap();
+      }
+
       kmlLayer = new KmlLayer(map, kmlStream, context);
       kmlLayer.addLayerToMap();
 
@@ -1216,13 +1221,15 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
         public void onFeatureClick(Feature feature) {
             // System.out.println("KML Feature clicked: " + feature.getId());
             // System.out.println("KML Feature clicked: " + feature.getPropertyKeys().toString());
-            System.out.println("KML Feature clicked: " + feature.getProperty("name"));
-
-            WritableMap event = makeClickEventData(tapLocation);
-            event.putString("action", "marker-press");
-            event.putString("id", feature.getId());
-            event.putString("name", feature.getProperty("name"));
-            manager.pushEvent(context, view, "onMarkerPress", event);
+            if (feature != null) {
+              System.out.println("KML Feature clicked: " + feature.getProperty("name"));
+  
+              WritableMap event = makeClickEventData(tapLocation);
+              event.putString("action", "marker-press");
+              event.putString("id", feature.getId());
+              event.putString("name", feature.getProperty("name"));
+              manager.pushEvent(context, view, "onMarkerPress", event);
+            }
         }
       });
 

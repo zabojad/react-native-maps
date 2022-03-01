@@ -77,7 +77,8 @@ import static androidx.core.content.PermissionChecker.checkSelfPermission;
 public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
     GoogleMap.OnMarkerDragListener, OnMapReadyCallback, GoogleMap.OnPoiClickListener, GoogleMap.OnIndoorStateChangeListener {
   public GoogleMap map;
-  private KmlLayer kmlLayer;
+  private KmlLayer[] kmlLayers;
+  private int kmlLayerIndex = 0;
   private ProgressBar mapLoadingProgressBar;
   private RelativeLayout mapLoadingLayout;
   private ImageView cacheImageView;
@@ -1181,41 +1182,88 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
     manager.pushEvent(context, this, "onDoublePress", event);
   }
 
-  public void setKmlSrc(String kmlSrc) {
+  public void setKmlLayerIndex(int index) {
+System.out.println("setKmlLayerIndex "+index);
+    if (kmlLayers != null && kmlLayers.length > index) {
+      try {
+        if (kmlLayers[kmlLayerIndex].isLayerOnMap()) {
+          System.out.println("kmlLayer "+kmlLayerIndex+" not null, removing...");
+          kmlLayers[kmlLayerIndex].removeLayerFromMap();
+        }
+        System.out.println("Adding Layer to Map");
+        kmlLayers[index].addLayerToMap();
+
+        final AirMapView view = this;
+        kmlLayers[index].setOnFeatureClickListener(new KmlLayer.OnFeatureClickListener() {
+          
+          @Override
+          public void onFeatureClick(Feature feature) {
+            // System.out.println("KML Feature clicked: " + feature.getId());
+            // System.out.println("KML Feature clicked: " + feature.getPropertyKeys().toString());
+            if (feature != null) {
+              System.out.println("KML Feature clicked: " + feature.getProperty("name"));
+  
+              WritableMap event = makeClickEventData(tapLocation);
+              event.putString("action", "marker-press");
+              event.putString("id", feature.getId());
+              event.putString("name", feature.getProperty("name"));
+              manager.pushEvent(context, view, "onMarkerPress", event);
+            }
+          }
+        });
+      } catch (XmlPullParserException e) {
+        e.printStackTrace();
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+    }
+    kmlLayerIndex = index;
+  }
+
+  public void setKmlSrc(ReadableArray kmlSrcs) {
+System.out.println("setKmlSrc "+kmlSrcs.size());
     try {
-      InputStream kmlStream =  new FileUtil(context).execute(kmlSrc).get();
-
-      if (kmlStream == null) {
-        return;
+      kmlLayers = new KmlLayer[kmlSrcs.size()];
+      for (int i=0; i <kmlSrcs.size(); i++) {
+        String kmlSrc = kmlSrcs.getString(i);
+        InputStream kmlStream =  new FileUtil(context).execute(kmlSrc).get();
+  
+        if (kmlStream == null) {
+          return;
+        }
+  
+        // if (kmlLayer != null && kmlLayer.isLayerOnMap()) {
+        //   System.out.println("kmlLayer not null, removing...");
+        //   kmlLayer.removeLayerFromMap();
+        // }
+  
+        KmlLayer kmlLayer = new KmlLayer(map, kmlStream, context);
+        kmlLayers[i] = kmlLayer;
+        System.out.println("Add "+kmlSrc+" at "+i);
+        //kmlLayer.addLayerToMap();
+  
+        // WritableMap pointers = new WritableNativeMap();
+        // WritableArray markers = new WritableNativeArray();
+  
+        // if (kmlLayer.getContainers() == null) {
+        //   manager.pushEvent(context, this, "onKmlReady", pointers);
+        //   return;
+        // }
+  
+        // //Retrieve a nested container within the first container
+        // KmlContainer container = kmlLayer.getContainers().iterator().next();
+        // if (container == null || container.getContainers() == null) {
+        //   manager.pushEvent(context, this, "onKmlReady", pointers);
+        //   return;
+        // }
       }
+      manager.pushEvent(context, this, "onKmlReady", new WritableNativeMap());
 
-      if (kmlLayer != null && kmlLayer.isLayerOnMap()) {
-        System.out.println("kmlLayer not null, removing...");
-        kmlLayer.removeLayerFromMap();
-      }
-
-      kmlLayer = new KmlLayer(map, kmlStream, context);
-      kmlLayer.addLayerToMap();
-
-      WritableMap pointers = new WritableNativeMap();
-      WritableArray markers = new WritableNativeArray();
-
-      if (kmlLayer.getContainers() == null) {
-        manager.pushEvent(context, this, "onKmlReady", pointers);
-        return;
-      }
-
-      // //Retrieve a nested container within the first container
-      // KmlContainer container = kmlLayer.getContainers().iterator().next();
-      // if (container == null || container.getContainers() == null) {
-      //   manager.pushEvent(context, this, "onKmlReady", pointers);
-      //   return;
-      // }
-
-      // Set a listener for geometry clicked events.
-      final AirMapView view = this;
+      System.out.println("Adding First Layer to Map");
+      kmlLayers[kmlLayerIndex].addLayerToMap();// Set a listener for geometry clicked events.
       
-      kmlLayer.setOnFeatureClickListener(new KmlLayer.OnFeatureClickListener() {
+      final AirMapView view = this;
+      kmlLayers[kmlLayerIndex].setOnFeatureClickListener(new KmlLayer.OnFeatureClickListener() {
         
         @Override
         public void onFeatureClick(Feature feature) {
@@ -1232,8 +1280,6 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
             }
         }
       });
-
-      manager.pushEvent(context, this, "onKmlReady", pointers);
 
     } catch (XmlPullParserException e) {
       e.printStackTrace();

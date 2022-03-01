@@ -284,10 +284,15 @@ public class AirMapManager extends ViewGroupManager<AirMapView> {
   }
 
   @ReactProp(name = "kmlSrc")
-  public void setKmlSrc(AirMapView view, String kmlUrl) {
-    if (kmlUrl != null) {
-      view.setKmlSrc(kmlUrl);
+  public void setKmlSrc(AirMapView view, ReadableArray kmlUrls) {
+    if (kmlUrls != null) {
+      view.setKmlSrc(kmlUrls);
     }
+  }
+
+  @ReactProp(name = "kmlLayerIndex")
+  public void setKmlLayerIndex(AirMapView view, int layerIndex) {
+    view.setKmlLayerIndex(layerIndex);
   }
 
   @Override

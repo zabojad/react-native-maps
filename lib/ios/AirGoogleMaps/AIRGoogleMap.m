@@ -92,6 +92,7 @@ id regionAsJSON(MKCoordinateRegion region) {
     _didCallOnMapReady = false;
     _didMoveToWindow = false;
     _zoomTapEnabled = YES;
+    _kmlLayerIndex = 0;
 
     // Listen to the myLocation property of GMSMapView.
     [self addObserver:self
@@ -357,7 +358,7 @@ id regionAsJSON(MKCoordinateRegion region) {
 }
 
 - (void)didTapAtCoordinate:(CLLocationCoordinate2D)coordinate {
-  if (parsers != nil && _kmlLayerIndex!=nil) {
+  if (parsers != nil) {
       GMUKMLParser * parser = [parsers objectAtIndex:[_kmlLayerIndex integerValue]];
       for (GMUPlacemark *place in parser.placemarks) {
           if ([place.geometry isKindOfClass:[GMUPolygon class]] &&
@@ -870,9 +871,6 @@ id regionAsJSON(MKCoordinateRegion region) {
 
 - (void)setKmlLayerIndex:(NSNumber *)index {
 #ifdef HAVE_GOOGLE_MAPS_UTILS
-    if (_kmlLayerIndex==nil) {
-        _kmlLayerIndex = 0;
-    }
     if (renderers!=nil && [renderers count] > [index integerValue]) {
         [[renderers objectAtIndex:[_kmlLayerIndex integerValue]] clear];
         [[renderers objectAtIndex:[index integerValue]] render];
@@ -911,7 +909,7 @@ id regionAsJSON(MKCoordinateRegion region) {
     
     for (NSString* kmlUrl in kmlUrls) {
         NSURL *url = [NSURL URLWithString:kmlUrl];
-        
+        NSLog(@"Parsing KML at %@",url);
         GMUKMLParser *parser = [[GMUKMLParser alloc] initWithURL:url];
         [parser parse];
         
@@ -923,11 +921,15 @@ id regionAsJSON(MKCoordinateRegion region) {
                                             styles:parser.styles];
         
         [renderers addObject:renderer];
-        
-        //[renderer render];
-        //[renderer clear];
     }
+    id event = @{ };
+    if (self.onKmlReady) {
+        self.onKmlReady(event);
+        NSLog(@"onKmlReady !");
+    }
+    NSLog(@"render !");
     [[renderers objectAtIndex:0] render];
+    
     
   //parser = [[GMUKMLParser alloc] initWithURL:url];
   //[parser parse];
@@ -961,8 +963,6 @@ id regionAsJSON(MKCoordinateRegion region) {
   }
      id event = @{@"placemarks": places};
 */
-    id event = @{ };
-    if (self.onKmlReady) self.onKmlReady(event);
 #else
     REQUIRES_GOOGLE_MAPS_UTILS();
 #endif

@@ -1184,6 +1184,10 @@ public class AirMapView extends MapView implements GoogleMap.InfoWindowAdapter,
 
   public void setKmlLayerIndex(int index) {
 System.out.println("setKmlLayerIndex "+index);
+    if (kmlLayerIndex == index) {
+      System.out.println("setKmlLayerIndex aborted, value is already "+index);
+      return;
+    }
     if (kmlLayers != null && kmlLayers.length > index) {
       try {
         if (kmlLayers[kmlLayerIndex].isLayerOnMap()) {

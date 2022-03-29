@@ -147,6 +147,38 @@ public class AirMapModule extends ReactContextBaseJavaModule {
   }
 
   @ReactMethod
+  public void didKmlTapAt(final int tag, final ReadableMap coordinate, final Promise promise) {
+    final ReactApplicationContext context = getReactApplicationContext();
+
+    final LatLng coord = new LatLng(
+            coordinate.hasKey("latitude") ? coordinate.getDouble("latitude") : 0.0,
+            coordinate.hasKey("longitude") ? coordinate.getDouble("longitude") : 0.0
+    );
+
+    UIManagerModule uiManager = context.getNativeModule(UIManagerModule.class);
+    uiManager.addUIBlock(new UIBlock()
+    {
+      @Override
+      public void execute(NativeViewHierarchyManager nvhm)
+      {
+        AirMapView view = (AirMapView) nvhm.resolveView(tag);
+        if (view == null) {
+          promise.reject("AirMapView not found");
+          return;
+        }
+        if (view.map == null) {
+          promise.reject("AirMapView.map is not valid");
+          return;
+        }
+
+        Boolean ret = view.didKmlTapAt(coord);
+
+        promise.resolve(ret);
+      }
+    });
+  }
+
+  @ReactMethod
   public void getCamera(final int tag, final Promise promise) {
     final ReactApplicationContext context = getReactApplicationContext();
 

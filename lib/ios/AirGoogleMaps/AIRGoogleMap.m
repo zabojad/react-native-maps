@@ -357,6 +357,34 @@ id regionAsJSON(MKCoordinateRegion region) {
     }
 }
 
+- (BOOL)didKmlTapAt:(CLLocationCoordinate2D)coordinate {
+  if (parsers != nil) {
+      GMUKMLParser * parser = [parsers objectAtIndex:[_kmlLayerIndex integerValue]];
+      for (GMUPlacemark *place in parser.placemarks) {
+          if ([place.geometry isKindOfClass:[GMUPolygon class]] &&
+              GMSGeometryContainsLocation(coordinate, ((GMUPolygon*) place.geometry).paths.firstObject, YES)) {
+              // kml case
+              id event = @{
+                @"action": @"polygon-press",
+                @"name": place.title ?: @"unknown",
+                @"id": place.styleUrl ?: @"unknown",
+                @"coordinate": @{
+                    @"latitude": @(coordinate.latitude),
+                    @"longitude": @(coordinate.longitude),
+                }
+              };
+              if (!self.onMarkerPress) return YES;
+              self.onMarkerPress(event);
+              return YES;
+          }
+      }
+      return NO;
+  }
+  if (!self.onPress) return NO;
+  self.onPress([self eventFromCoordinate:coordinate]);
+  return NO;
+}
+
 - (void)didTapAtCoordinate:(CLLocationCoordinate2D)coordinate {
   if (parsers != nil) {
       GMUKMLParser * parser = [parsers objectAtIndex:[_kmlLayerIndex integerValue]];
@@ -914,11 +942,33 @@ id regionAsJSON(MKCoordinateRegion region) {
         [parser parse];
         
         [parsers addObject:parser];
+
+        NSMutableArray<GMUStyle *> *styles = [NSMutableArray new];
+
+        for (id sty in parser.styles) {
+            // here, we change the parsed style so that it has a black stroke (otherwise it won't have one by default as in Android or web)
+            GMUStyle * newStyle = [GMUStyle new];
+            
+            newStyle = [newStyle
+             initWithStyleID: [(GMUStyle *) sty styleID]
+             strokeColor: UIColor.blackColor
+             fillColor: [(GMUStyle *) sty fillColor]
+             width: 3.0
+             scale: [(GMUStyle *) sty scale]
+             heading: [(GMUStyle *) sty heading]
+             anchor: [(GMUStyle *) sty anchor]
+             iconUrl: [(GMUStyle *) sty iconUrl]
+             title: [(GMUStyle *) sty title]
+             hasFill: [(GMUStyle *) sty hasFill]
+             hasStroke: YES];
+            
+            [styles addObject:newStyle];
+        }
         
         GMUGeometryRenderer *renderer =
           [[GMUGeometryRenderer alloc] initWithMap:self
                                         geometries:parser.placemarks
-                                            styles:parser.styles];
+                                            styles:styles];
         
         [renderers addObject:renderer];
     }

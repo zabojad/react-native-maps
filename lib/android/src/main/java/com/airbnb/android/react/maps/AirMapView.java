@@ -56,15 +56,19 @@ import com.google.android.gms.maps.model.VisibleRegion;
 import com.google.android.gms.maps.model.IndoorBuilding;
 import com.google.android.gms.maps.model.IndoorLevel;
 import com.google.maps.android.data.Feature;
+import com.google.maps.android.data.Geometry;
 import com.google.maps.android.data.kml.KmlContainer;
 import com.google.maps.android.data.kml.KmlLayer;
 import com.google.maps.android.data.kml.KmlPlacemark;
 import com.google.maps.android.data.kml.KmlStyle;
+import com.google.maps.android.data.kml.KmlPolygon;
+import com.google.maps.android.PolyUtil;
 
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collection;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -1224,6 +1228,47 @@ System.out.println("setKmlLayerIndex "+index);
     kmlLayerIndex = index;
   }
 
+  public Boolean didKmlTapAt(LatLng coordinate) {
+    System.out.println("didKmlTapAt "+coordinate.latitude+"  "+coordinate.longitude);
+    if (kmlLayers != null && kmlLayers[kmlLayerIndex].isLayerOnMap()) {
+      System.out.println("kmlLayer on map");
+      System.out.println("with placemark count at "+((Collection<KmlPlacemark>) kmlLayers[kmlLayerIndex].getPlacemarks()).size());
+
+      //Retrieve a nested container within the first container
+      KmlContainer container = kmlLayers[kmlLayerIndex].getContainers().iterator().next();
+      if (container == null || container.getContainers() == null) {
+        return false;
+      }
+      if (container.getContainers().iterator().hasNext()) {
+        container = container.getContainers().iterator().next();
+      }
+
+      // for (KmlPlacemark plm : kmlLayers[kmlLayerIndex].getPlacemarks()) {
+      for (KmlPlacemark plm : container.getPlacemarks()) {
+        Geometry gm = plm.getGeometry();
+        System.out.println("is geometry a Polygon ? "+gm.getGeometryType());
+        if (gm.getGeometryType().equals(KmlPolygon.GEOMETRY_TYPE)) {
+          System.out.println("is Polygon");
+          if (PolyUtil.containsLocation(coordinate, ((KmlPolygon) gm).getOuterBoundaryCoordinates(), false)) {
+            
+            System.out.println("didKmlTapAt polygon found");
+            final AirMapView view = this;
+
+            WritableMap event = makeClickEventData(coordinate);
+            event.putString("action", "marker-press");
+            event.putString("id", plm.getId());
+            event.putString("name", plm.getProperty("name"));
+            manager.pushEvent(context, view, "onMarkerPress", event);
+
+            return true;
+          }
+        }
+        
+      }
+    }
+    return false;
+  }
+
   public void setKmlSrc(ReadableArray kmlSrcs) {
 System.out.println("setKmlSrc "+kmlSrcs.size());
     try {
@@ -1264,7 +1309,7 @@ System.out.println("setKmlSrc "+kmlSrcs.size());
       manager.pushEvent(context, this, "onKmlReady", new WritableNativeMap());
 
       System.out.println("Adding First Layer to Map");
-      kmlLayers[kmlLayerIndex].addLayerToMap();// Set a listener for geometry clicked events.
+      kmlLayers[kmlLayerIndex].addLayerToMap(); // Set a listener for geometry clicked events.
       
       final AirMapView view = this;
       kmlLayers[kmlLayerIndex].setOnFeatureClickListener(new KmlLayer.OnFeatureClickListener() {

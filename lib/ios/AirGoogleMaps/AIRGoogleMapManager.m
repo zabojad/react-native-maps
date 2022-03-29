@@ -106,6 +106,27 @@ RCT_EXPORT_VIEW_PROPERTY(maxZoomLevel, CGFloat)
 RCT_EXPORT_VIEW_PROPERTY(kmlSrc, NSArray)
 RCT_EXPORT_VIEW_PROPERTY(kmlLayerIndex, NSNumber)
 
+RCT_EXPORT_METHOD(didKmlTapAt:(nonnull NSNumber *)reactTag
+                  coordinate:(NSDictionary *)coordinate
+                  resolver: (RCTPromiseResolveBlock)resolve
+                  rejecter:(RCTPromiseRejectBlock)reject)
+{
+    [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, UIView *> *viewRegistry) {
+        id view = viewRegistry[reactTag];
+        if (![view isKindOfClass:[AIRGoogleMap class]]) {
+            reject(@"Invalid argument", [NSString stringWithFormat:@"Invalid view returned from registry, expecting AIRGoogleMap, got: %@", view], NULL);
+        } else {
+            AIRGoogleMap *mapView = (AIRGoogleMap *)view;
+            CLLocationCoordinate2D coord =
+            CLLocationCoordinate2DMake(
+               [coordinate[@"latitude"] doubleValue],
+               [coordinate[@"longitude"] doubleValue]
+            );
+            resolve([mapView didKmlTapAt: coord] ? [NSNumber numberWithInt:1] : [NSNumber numberWithInt:0]);
+        }
+    }];
+}
+
 RCT_EXPORT_METHOD(getCamera:(nonnull NSNumber *)reactTag
                   resolver: (RCTPromiseResolveBlock)resolve
                   rejecter:(RCTPromiseRejectBlock)reject)
